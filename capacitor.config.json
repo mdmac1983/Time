@@ -1,0 +1,14 @@
+{
+  "appId": "com.mdmac1983.timehub",
+  "appName": "Time Hub",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0f1020"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_timehub",
+      "iconColor": "#7c6cff"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Time Hub</string>
+    <string name="title_activity_main">Time Hub</string>
+    <string name="package_name">com.mdmac1983.timehub</string>
+    <string name="custom_url_scheme">com.mdmac1983.timehub</string>
+</resources>

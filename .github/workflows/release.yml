@@ -1,0 +1,103 @@
+name: Release build
+
+# Every push builds the app. When package.json carries a version that has no
+# release yet (e.g. after `npm run bump`), a GitHub Release vX.Y is published
+# with the signed Android APK and the installable web app.
+on:
+  push:
+    branches: [main, 'claude/**']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION is already released — run 'npm run bump' to publish a new version."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Use private signing key (if configured)
+        env:
+          KEYSTORE_B64: ${{ secrets.TIMEHUB_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.TIMEHUB_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.TIMEHUB_KEY_ALIAS }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            {
+              echo "TIMEHUB_KEYSTORE=$RUNNER_TEMP/release.jks"
+              echo "TIMEHUB_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "TIMEHUB_KEY_ALIAS=${KEY_ALIAS:-timehub}"
+            } >> "$GITHUB_ENV"
+            echo "Signing with private keystore from secrets"
+          else
+            echo "::warning::No TIMEHUB_KEYSTORE_BASE64 secret — signing with the repo's fallback keystore."
+          fi
+
+      - name: Build signed release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Package artifacts
+        run: |
+          mkdir -p release
+          cp android/app/build/outputs/apk/release/app-release.apk "release/TimeHub-${{ steps.ver.outputs.tag }}.apk"
+          (cd dist && zip -qr "../release/TimeHub-${{ steps.ver.outputs.tag }}-web.zip" .)
+          ls -la release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TimeHub-${{ steps.ver.outputs.tag }}
+          path: release/*
+
+      - name: Publish GitHub Release
+        if: steps.ver.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Time Hub ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          generate_release_notes: true
+          body: |
+            ## Install
+            - **Android:** download `TimeHub-${{ steps.ver.outputs.tag }}.apk` below and open it on your phone (allow "install unknown apps" for your browser/files app). Newer versions install right over older ones — your data is kept.
+            - **Web / desktop:** unzip `TimeHub-${{ steps.ver.outputs.tag }}-web.zip` and host it anywhere (or open with any static server), then use "Install app" in your browser.
+          files: release/*

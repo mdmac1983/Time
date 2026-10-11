@@ -32,7 +32,7 @@ npm run bump      # bumps package.json, lockfile and service-worker cache
 git commit -am "Release v1.1" && git push
 ```
 
-Every push runs `.github/workflows/release.yml`: tests, web build, signed Android APK. If the version in `package.json` has no release yet, it publishes a GitHub Release `vX.Y` with `TimeHub-vX.Y.apk` and `TimeHub-vX.Y-web.zip`. Android `versionCode` is `major*100 + minor` so each release installs over the previous one.
+Every push runs `.github/workflows/release.yml`: tests, web build, signed Android APK. If the version in `package.json` has no release yet, it publishes a GitHub Release `vX.Y` with `TimeHub-vX.Y.apk` (Android), `TimeHub-vX.Y.html` (the whole web app in one file — double-click to open) and `TimeHub-vX.Y-web.zip` (for hosting). Pushes to `main` also deploy the web app to GitHub Pages (enable once: Settings → Pages → Source: GitHub Actions). Android `versionCode` is `major*100 + minor` so each release installs over the previous one.
 
 ### Signing
 Release APKs are signed with `android/app/timehub-release.jks` unless the repository has these secrets, in which case CI uses them instead:

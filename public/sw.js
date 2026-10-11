@@ -1,5 +1,5 @@
 // Network-first for navigations, cache-first for hashed assets. Bump CACHE on each release.
-const CACHE = 'timehub-v1.0';
+const CACHE = 'timehub-v1.1';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])));

@@ -79,6 +79,7 @@ jobs:
         run: |
           mkdir -p release
           cp android/app/build/outputs/apk/release/app-release.apk "release/TimeHub-${{ steps.ver.outputs.tag }}.apk"
+          cp dist/index.html "release/TimeHub-${{ steps.ver.outputs.tag }}.html"
           (cd dist && zip -qr "../release/TimeHub-${{ steps.ver.outputs.tag }}-web.zip" .)
           ls -la release
 
@@ -86,6 +87,10 @@ jobs:
         with:
           name: TimeHub-${{ steps.ver.outputs.tag }}
           path: release/*
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
 
       - name: Publish GitHub Release
         if: steps.ver.outputs.exists == 'false'
@@ -98,6 +103,24 @@ jobs:
           generate_release_notes: true
           body: |
             ## Install
-            - **Android:** download `TimeHub-${{ steps.ver.outputs.tag }}.apk` below and open it on your phone (allow "install unknown apps" for your browser/files app). Newer versions install right over older ones — your data is kept.
-            - **Web / desktop:** unzip `TimeHub-${{ steps.ver.outputs.tag }}-web.zip` and host it anywhere (or open with any static server), then use "Install app" in your browser.
+            - **Android phone:** download `TimeHub-${{ steps.ver.outputs.tag }}.apk` below, open it, and allow "install unknown apps" when asked. Then open **Time Hub** from your app drawer. Newer versions install right over older ones — your data is kept.
+            - **iPhone / iPad:** the APK only works on Android. Use the web version at https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ in Safari, then Share → Add to Home Screen.
+            - **Computer:** download `TimeHub-${{ steps.ver.outputs.tag }}.html` and double-click it — the whole app is in that one file.
           files: release/*
+
+  # Hosted web version (GitHub Pages). Needs Settings → Pages → Source: "GitHub Actions" once;
+  # GitHub only lets the default branch deploy, so this runs after merging to main.
+  pages:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
